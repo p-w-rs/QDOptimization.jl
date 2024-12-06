@@ -1,0 +1,23 @@
+{
+  "description": "Julia package for Quality-Diversity Optimization",
+  "status": "WIP",
+  "references": [
+    {
+      "title": "pyribs",
+      "url": "https://pyribs.org",
+      "year": null
+    },
+    {
+      "title": "Covariance Matrix Adaptation MAP-Annealing",
+      "url": "https://arxiv.org/abs/2205.10752",
+      "year": 2022
+    }
+  ],
+  "tags": [
+    "Favorites",
+    "Evolutionary Algorithms",
+    "Utility Library",
+    "Optimization",
+    "Julia"
+  ]
+}
