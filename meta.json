@@ -3,9 +3,9 @@
   "status": "WIP",
   "references": [
     {
-      "title": "pyribs",
-      "url": "https://pyribs.org",
-      "year": null
+      "title": "pyribs: A Bare-Bones Python Library for Quality Diversity Optimization",
+      "url": "https://arxiv.org/abs/2303.00191",
+      "year": 2023
     },
     {
       "title": "Covariance Matrix Adaptation MAP-Annealing",
