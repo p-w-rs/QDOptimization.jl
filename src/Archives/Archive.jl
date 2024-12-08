@@ -7,7 +7,7 @@ Type parameters:
 - S: Solution type (Float or Integer)
 - M: Measure/Objective type (Float)
 """
-abstract type Archive{S<:SolutionType, M<:MeasureType} end
+abstract type Archive{S<:SolutionType,M<:MeasureType} end
 
 """
     Elite{S,M}
@@ -20,14 +20,21 @@ Represents an elite solution in the archive.
 - `objective::M`: Objective value
 - `measure::Vector{M}`: Measure vector
 """
-struct Elite{S<:SolutionType, M<:MeasureType}
+struct Elite{S<:SolutionType,M<:MeasureType}
     index::Int
     solution::Vector{S}
     objective::M
     measure::Vector{M}
 end
 
-# Status enum for add! operation
+"""
+    STATUS
+
+Enum specifying the status of a solution added to the archive.
+- NEW: Added to an empty cell
+- IMPROVE: Improved an existing cell
+- NOT_ADDED: Not added to the archive
+"""
 @enum STATUS NEW IMPROVE NOT_ADDED
 
 """

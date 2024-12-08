@@ -17,10 +17,11 @@ Main types:
 """
 module QDOptimization
 
-using Random, Distributed
+using Random
+using Statistics: mean
 import Base: get, length, isempty
 
-const SolutionType = Union{AbstractFloat, Integer}
+const SolutionType = Union{AbstractFloat,Integer}
 const MeasureType = AbstractFloat
 
 include("Archives/Archive.jl")
@@ -48,11 +49,15 @@ export
 
 include("Schedulers/Scheduler.jl")
 include("Schedulers/RoundRobinScheduler.jl")
+include("Schedulers/BanditScheduler.jl")
 export
     # Scheduler Types
-    Scheduler, RoundRobinScheduler,
+    Scheduler, RoundRobinScheduler, BanditScheduler,
+
+    # Report enum for run! operation
+    ReportMode, VERBOSE, COMPACT,
 
     # Scheduler functions
-    run!
+    run!, generate_stats_report
 
 end
