@@ -56,15 +56,15 @@ function generate_stats_report(
 
     if mode == VERBOSE
         # Aggregate stats across archives
-        stats[:coverage] = mean(coverage(arch) for arch in archives)
-        stats[:mean_objective] = mean(obj_mean(arch) for arch in archives)
-        stats[:total_qd_score] = sum(qd_score(arch) for arch in archives)
-        stats[:normalized_qd_score] = mean(norm_qd_score(arch) for arch in archives)
+        stats[:coverage] = StatsBase.mean(coverage(arch) for arch in archives)
+        stats[:mean_objective] = StatsBase.mean(obj_mean(arch) for arch in archives)
+        stats[:total_qd_score] = StatsBase.mean(qd_score(arch) for arch in archives)
+        stats[:normalized_qd_score] = StatsBase.mean(norm_qd_score(arch) for arch in archives)
         stats[:total_cells] = sum(cells(arch) for arch in archives)
         stats[:filled_cells] = sum(length(arch) for arch in archives)
     else # COMPACT
-        stats[:coverage] = mean(coverage(arch) for arch in archives)
-        stats[:total_qd_score] = sum(qd_score(arch) for arch in archives)
+        stats[:coverage] = StatsBase.mean(coverage(arch) for arch in archives)
+        stats[:total_qd_score] = StatsBase.mean(qd_score(arch) for arch in archives)
     end
 
     return stats

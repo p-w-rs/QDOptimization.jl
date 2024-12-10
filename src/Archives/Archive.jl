@@ -121,13 +121,13 @@ function solution_dim(::Archive)
 end
 
 """
-    measure_dims(archive::Archive{S,M}) where {S,M}
+    measure_dim(archive::Archive{S,M}) where {S,M}
 
 Get the dimensions of the measure space.
 Returns Tuple{Vararg{Int}}.
 """
-function measure_dims(::Archive)
-    error("measure_dims not implemented")
+function measure_dim(::Archive)
+    error("measure_dim not implemented")
 end
 
 """

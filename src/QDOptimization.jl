@@ -18,8 +18,8 @@ Main types:
 module QDOptimization
 
 using Random
-using Statistics: mean
 import Base: get, length, isempty
+import StatsBase
 
 const SolutionType = Union{AbstractFloat,Integer}
 const MeasureType = AbstractFloat
@@ -35,14 +35,15 @@ export
 
     # Archive functions
     add!, clear!, get, get_elite, elites, sample,
-    length, isempty, solution_dim, measure_dims, cells,
+    length, isempty, solution_dim, measure_dim, cells,
     coverage, obj_max, obj_mean, qd_score, norm_qd_score
 
 include("Emitters/Emitter.jl")
 include("Emitters/GaussianEmitter.jl")
+include("Emitters/IsoLineEmitter.jl")
 export
     # Emitter Types
-    Emitter, GaussianEmitter,
+    Emitter, GaussianEmitter, IsoLineEmitter,
 
     # Emitter functions
     ask!, tell!

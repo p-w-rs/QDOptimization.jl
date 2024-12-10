@@ -11,7 +11,7 @@ Grid-based archive dividing measure space into uniform cells.
 
 # Fields
 - `solution_dim::Int`: Dimension of solution space
-- `measure_dims::Tuple{Vararg{Int}}`: Number of cells per dimension
+- `cells_per_measure::Tuple{Vararg{Int}}`: Number of cells per dimension
 - `measure_ranges::Vector{Tuple{M,M}}`: Min/max ranges per dimension
 - `learning_rate::M`: Learning rate for threshold updates
 - `threshold_min::M`: Minimum threshold value
@@ -19,7 +19,7 @@ Grid-based archive dividing measure space into uniform cells.
 mutable struct GridArchive{S<:SolutionType,M<:MeasureType} <: Archive{S,M}
     # Archive configuration
     solution_dim::Int
-    measure_dims::Tuple{Vararg{Int}}
+    cells_per_measure::Tuple{Vararg{Int}}
     measure_ranges::Vector{Tuple{M,M}}
     learning_rate::M
     threshold_min::M
@@ -43,13 +43,13 @@ mutable struct GridArchive{S<:SolutionType,M<:MeasureType} <: Archive{S,M}
 
     function GridArchive{S,M}(
         solution_dim::Integer,
-        measure_dims::Tuple{Vararg{Integer}},
+        cells_per_measure::Tuple{Vararg{Integer}},
         measure_ranges::Vector{Tuple{M,M}};
         learning_rate::M = one(M),
         threshold_min::M = M(-Inf)
     ) where {S<:SolutionType,M<:MeasureType}
-        length(measure_dims) == length(measure_ranges) ||
-            throw(ArgumentError("measure dimensions and ranges must match"))
+        length(cells_per_measure) == length(measure_ranges) ||
+            throw(ArgumentError("cells_per_measure must have same length as measure_ranges"))
         all(r -> r[1] < r[2], measure_ranges) ||
             throw(ArgumentError("range lower bounds must be less than upper bounds"))
 
@@ -57,17 +57,17 @@ mutable struct GridArchive{S<:SolutionType,M<:MeasureType} <: Archive{S,M}
         upper_bounds = M[r[2] for r in measure_ranges]
         interval_size = upper_bounds .- lower_bounds
 
-        boundaries = [range(lower_bounds[i], upper_bounds[i], length=measure_dims[i]-1) |> collect
-                     for i in eachindex(measure_dims)]
+        boundaries = [range(lower_bounds[i], upper_bounds[i], length=cells_per_measure[i]-1) |> collect
+                     for i in eachindex(cells_per_measure)]
 
-        ncells = prod(measure_dims)
+        ncells = prod(cells_per_measure)
         new{S,M}(
-            solution_dim, measure_dims, measure_ranges, learning_rate, threshold_min,
+            solution_dim, cells_per_measure, measure_ranges, learning_rate, threshold_min,
             lower_bounds, upper_bounds, interval_size, boundaries,
             Set{Int}(),
             zeros(S, solution_dim, ncells),
             fill(M(-Inf), ncells),
-            zeros(M, length(measure_dims), ncells),
+            zeros(M, length(cells_per_measure), ncells),
             fill(threshold_min, ncells),
             Dict{Int,Elite{S,M}}(),
             zero(M)
@@ -78,8 +78,8 @@ end
 Base.length(archive::GridArchive) = length(archive.occupied)
 Base.isempty(archive::GridArchive) = isempty(archive.occupied)
 solution_dim(archive::GridArchive) = archive.solution_dim
-measure_dims(archive::GridArchive) = archive.measure_dims
-cells(archive::GridArchive) = prod(archive.measure_dims)
+measure_dim(archive::GridArchive) = length(archive.cells_per_measure)
+cells(archive::GridArchive) = prod(archive.cells_per_measure)
 coverage(archive::GridArchive) = length(archive.occupied) / cells(archive)
 obj_max(archive::GridArchive) = maximum(archive.objectives[collect(archive.occupied)])
 obj_mean(archive::GridArchive) = sum(archive.objectives[collect(archive.occupied)]) / length(archive)
@@ -87,14 +87,14 @@ qd_score(archive::GridArchive) = sum(archive.objectives[collect(archive.occupied
 norm_qd_score(archive::GridArchive) = qd_score(archive) / cells(archive)
 
 function index_of(archive::GridArchive{S,M}, measure::AbstractVector{M})::Int where {S,M}
-    length(measure) == length(archive.measure_dims) ||
-        throw(ArgumentError("measure must have same length as measure_dims"))
+    length(measure) == length(archive.cells_per_measure) ||
+        throw(ArgumentError("measure must have same length as cells_per_measure"))
 
     cell_idxs = [searchsortedfirst(b, m) for (b, m) in zip(archive.boundaries, measure)]
 
     idx = cell_idxs[1]
     for i in 2:length(cell_idxs)
-        idx += (cell_idxs[i] - 1) * prod(archive.measure_dims[1:i-1])
+        idx += (cell_idxs[i] - 1) * prod(archive.cells_per_measure[1:i-1])
     end
 
     return idx
@@ -103,7 +103,7 @@ end
 function add!(archive::GridArchive{S,M}, solution::AbstractVector{S}, objective::M, measure::AbstractVector{M})::NamedTuple{(:status,:value),Tuple{STATUS,M}} where {S,M}
     length(solution) == archive.solution_dim ||
         throw(DimensionMismatch("solution dimension mismatch"))
-    length(measure) == length(archive.measure_dims) ||
+    length(measure) == length(archive.cells_per_measure) ||
         throw(DimensionMismatch("measure dimension mismatch"))
 
     archive.qd_score_offset = min(archive.qd_score_offset, objective)

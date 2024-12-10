@@ -8,14 +8,14 @@ using QDOptimization
         @testset "Construction" begin
             archive = GridArchive{Float64,Float64}(
                 2,                              # solution_dim
-                (10, 10),                       # measure_dims
+                (10, 10),                       # cells_per_measure
                 [(0.0, 1.0), (0.0, 1.0)],      # measure_ranges
                 learning_rate=0.5,
                 threshold_min=-1.0
             )
 
             @test solution_dim(archive) == 2
-            @test measure_dims(archive) == (10, 10)
+            @test measure_dim(archive) == 2
             @test cells(archive) == 100
             @test isempty(archive)
             @test length(archive) == 0
@@ -205,26 +205,25 @@ using QDOptimization
             ]
 
             # Test valid constructions
-            scheduler = BanditScheduler(emitters, 2)
+            scheduler = BanditScheduler(emitters, num_active=2)
             @test isa(scheduler, BanditScheduler)
 
             scheduler_explicit = BanditScheduler{Float64,Float64}(
                 emitters,
-                2,
-                zeta=0.05,
+                num_active=2,
                 batch_size=10
             )
             @test isa(scheduler_explicit, BanditScheduler)
 
             # Test invalid constructions
             # Test num_active validation
-            @test_throws ArgumentError BanditScheduler(emitters, 0)  # num_active <= 0
-            @test_throws ArgumentError BanditScheduler(emitters, 4)  # num_active > n_emitters
+            @test_throws ArgumentError BanditScheduler(emitters, num_active=0)  # num_active <= 0
+            @test_throws ArgumentError BanditScheduler(emitters, num_active=4)  # num_active > n_emitters
 
             # Test mismatched solution dimensions
             archive2 = GridArchive{Float64,Float64}(3, (10, 10), [(0.0, 1.0), (0.0, 1.0)])
             bad_emitter = GaussianEmitter{Float64,Float64}(archive2)
-            @test_throws ArgumentError BanditScheduler([emitters[1], bad_emitter], 1)
+            @test_throws ArgumentError BanditScheduler([emitters[1], bad_emitter])
         end
 
         @testset "Run" begin
@@ -247,7 +246,7 @@ using QDOptimization
 
             scheduler = BanditScheduler(
                 emitters,
-                2,
+                num_active=2,
                 batch_size=10,
                 stats_frequency=5
             )
@@ -282,7 +281,7 @@ using QDOptimization
             )
         end
 
-        @testset "UCB1 Selection" begin
+        @testset "Thompson Selection" begin
             archive = GridArchive{Float64,Float64}(2, (10, 10), [(0.0, 1.0), (0.0, 1.0)])
 
             # Create emitters with different performance characteristics
@@ -293,9 +292,8 @@ using QDOptimization
 
             scheduler = BanditScheduler(
                 emitters,
-                1,  # Only select one emitter at a time
-                batch_size=5,
-                zeta=0.1
+                num_active=1,  # Only select one emitter at a time
+                batch_size=5
             )
 
             # Create an objective function that favors the first emitter

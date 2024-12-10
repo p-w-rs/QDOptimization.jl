@@ -18,7 +18,7 @@ Emits solutions by adding Gaussian noise to existing archive solutions.
 """
 struct GaussianEmitter{S<:SolutionType,M<:MeasureType} <: Emitter{S,M}
     archive::Archive{S,M}
-    σ::Vector{M}
+    σ::Vector{S}
     x0::Vector{S}
     lower_bounds::Vector{S}
     upper_bounds::Vector{S}
@@ -26,7 +26,7 @@ struct GaussianEmitter{S<:SolutionType,M<:MeasureType} <: Emitter{S,M}
 
     function GaussianEmitter{S,M}(
         archive::Archive{S,M};
-        σ::Union{M,AbstractVector{M}} = one(M),
+        σ::Union{S,AbstractVector{S}} = one(S),
         x0::Union{S,AbstractVector{S}} = zero(S),
         bounds::Union{Nothing,Tuple{S,S},AbstractVector{Tuple{S,S}}} = nothing,
         seed::Union{Nothing,Integer} = nothing
@@ -34,7 +34,7 @@ struct GaussianEmitter{S<:SolutionType,M<:MeasureType} <: Emitter{S,M}
         sol_dim = solution_dim(archive)
 
         # Convert scalar to vector if needed
-        σ_vec = σ isa M ? fill(σ, sol_dim) : convert(Vector{M}, σ)
+        σ_vec = σ isa S ? fill(σ, sol_dim) : convert(Vector{S}, σ)
         length(σ_vec) == sol_dim ||
             throw(ArgumentError("σ must have length equal to solution dimension"))
 

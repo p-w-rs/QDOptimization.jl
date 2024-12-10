@@ -3,7 +3,7 @@
 """
     BanditScheduler{S,M} <: Scheduler{S,M}
 
-Scheduler that uses UCB1 algorithm to select emitters.
+Scheduler that uses Thompson Sampling to select emitters.
 
 # Type parameters
 - S: Solution type (Float or Integer)
@@ -12,7 +12,6 @@ Scheduler that uses UCB1 algorithm to select emitters.
 # Fields
 - `emitters::Vector{<:Emitter{S,M}}`: Pool of available emitters
 - `num_active::Int`: Number of active emitters at a time
-- `zeta::M`: UCB1 exploration parameter
 - `batch_size::Int`: Number of solutions per batch
 - `stats_frequency::Int`: How often to print statistics
 - `report_mode::ReportMode`: Level of detail in reporting
@@ -21,20 +20,18 @@ Scheduler that uses UCB1 algorithm to select emitters.
 struct BanditScheduler{S<:SolutionType,M<:MeasureType} <: Scheduler{S,M}
     emitters::Vector{<:Emitter{S,M}}
     num_active::Int
-    zeta::M
     batch_size::Int
     stats_frequency::Int
     report_mode::ReportMode
     report_archives::Vector{Archive{S,M}}
 
     function BanditScheduler{S,M}(
-        emitters::Vector{<:Emitter{S,M}},
-        num_active::Int;
-        zeta::M = convert(M, 0.05),
-        batch_size::Int = Threads.nthreads(),
-        stats_frequency::Int = 1,
-        report_mode::ReportMode = VERBOSE,
-        report_archives = nothing
+        emitters::Vector{<:Emitter{S,M}};
+        num_active::Int=1,
+        batch_size::Int=Threads.nthreads(),
+        stats_frequency::Int=1,
+        report_mode::ReportMode=VERBOSE,
+        report_archives=nothing
     ) where {S<:SolutionType,M<:MeasureType}
 
         # Validation
@@ -56,82 +53,24 @@ struct BanditScheduler{S<:SolutionType,M<:MeasureType} <: Scheduler{S,M}
             collect(report_archives)
         end
 
-        new{S,M}(emitters, num_active, zeta, batch_size,
-                 stats_frequency, report_mode, archives)
+        new{S,M}(emitters, num_active, batch_size,
+            stats_frequency, report_mode, archives)
     end
 end
 
 """
     BanditScheduler(
-        emitters::Vector{<:Emitter{S,M}},
-        num_active::Int;
+        emitters::Vector{<:Emitter{S,M}};
         kwargs...
     ) where {S,M}
 
 Convenience constructor that infers types.
 """
 function BanditScheduler(
-    emitters::Vector{<:Emitter{S,M}},
-    num_active::Int;
+    emitters::Vector{<:Emitter{S,M}};
     kwargs...
 ) where {S,M}
-    BanditScheduler{S,M}(emitters, num_active; kwargs...)
-end
-
-"""
-Helper function to select active emitters using UCB1 algorithm
-"""
-function select_active_emitters(
-    scheduler::BanditScheduler{S,M},
-    emitter_counts::Vector{Int},
-    emitter_rewards::Vector{M}
-) where {S,M}
-    if any(iszero, emitter_counts)
-        # Select unused emitters first
-        never_used = findall(iszero, emitter_counts)
-        return never_used[1:min(length(never_used), scheduler.num_active)]
-    else
-        # Calculate UCB1 scores
-        total_counts = sum(emitter_counts)
-        scores = map(enumerate(emitter_counts)) do (i, count)
-            avg_reward = emitter_rewards[i] / count
-            exploration = sqrt((2 * log(total_counts)) / count)
-            avg_reward + scheduler.zeta * exploration
-        end
-
-        # Return indices of top scoring emitters
-        return partialsort(1:length(scores), 1:scheduler.num_active, by=i->scores[i], rev=true)
-    end
-end
-
-"""
-Helper function to evaluate solutions
-"""
-function evaluate_solutions(
-    objective_fn::Function,
-    solutions::Matrix{S},
-    measure_dim::Int,
-    parallel::Bool
-) where {S}
-    n_solutions = size(solutions, 2)
-    objectives = Vector{Float64}(undef, n_solutions)
-    measures = Matrix{Float64}(undef, measure_dim, n_solutions)
-
-    if parallel
-        Threads.@threads for i in 1:n_solutions
-            result = objective_fn(view(solutions, :, i))
-            objectives[i] = result.objective
-            measures[:, i] .= result.measure
-        end
-    else
-        for i in 1:n_solutions
-            result = objective_fn(view(solutions, :, i))
-            objectives[i] = result.objective
-            measures[:, i] .= result.measure
-        end
-    end
-
-    return objectives, measures
+    BanditScheduler{S,M}(emitters; kwargs...)
 end
 
 """
@@ -155,43 +94,34 @@ function run!(
     end
 
     # Initialize tracking variables
-    emitter_counts = zeros(Int, length(scheduler.emitters))
-    emitter_rewards = zeros(M, length(scheduler.emitters))
+    emitter_n = length(scheduler.emitters)
+    emitter_means = zeros(M, emitter_n)
+    emitter_vars = zeros(M, emitter_n)
+    emitter_steps = zeros(M, emitter_n)
     n_batches = ceil(Int, n_evaluations / scheduler.batch_size)
     total_evals = 0
 
     # Get solution and measure dimensions
     sol_dim = solution_dim(first(scheduler.emitters).archive)
-    measure_dim = length(measure_dims(first(scheduler.emitters).archive))
+    mea_dim = measure_dim(first(scheduler.emitters).archive)
 
     for batch in 1:n_batches
-        # Select active emitters
-        active_emitters = select_active_emitters(scheduler, emitter_counts, emitter_rewards)
+        # Select active emitters based on Thompson Sampling
+        emitters_idxs = sortperm(emitter_means .+ randn(emitter_n) .* sqrt.(emitter_vars))
+        emitters_idxs = emitters_idxs[1:scheduler.num_active]
 
         # Get solutions from active emitters
-        solutions_per_emitter = ceil(Int, scheduler.batch_size / length(active_emitters))
-        solutions = Matrix{S}(undef, sol_dim, scheduler.batch_size)
-        emitter_indices = Vector{Int}(undef, scheduler.batch_size)
-
-        # Collect solutions from emitters
-        current_idx = 1
-        for emitter_idx in active_emitters
-            n_solutions = min(solutions_per_emitter,
-                            scheduler.batch_size - current_idx + 1)
-            if n_solutions <= 0
-                break
-            end
-
-            emitter_sols = ask!(scheduler.emitters[emitter_idx], n_solutions)
-            solutions[:, current_idx:(current_idx + n_solutions - 1)] .= emitter_sols
-            emitter_indices[current_idx:(current_idx + n_solutions - 1)] .= emitter_idx
-            current_idx += n_solutions
+        solutions_per_emitter = max(1, ceil(Int, scheduler.batch_size / scheduler.num_active))
+        solutions = Matrix{S}(undef, sol_dim, solutions_per_emitter*scheduler.num_active)
+        idx = 1
+        for (i, emitter_idx) in enumerate(emitters_idxs)
+            solutions[:, idx:i*solutions_per_emitter] .= ask!(scheduler.emitters[emitter_idx], solutions_per_emitter)
+            idx += solutions_per_emitter
         end
 
         # Evaluate solutions
         objectives = Vector{M}(undef, size(solutions, 2))
-        measures = Matrix{M}(undef, measure_dim, size(solutions, 2))
-
+        measures = Matrix{M}(undef, mea_dim, size(solutions, 2))
         if parallel
             Threads.@threads for i in 1:size(solutions, 2)
                 result = objective_fn(view(solutions, :, i))
@@ -206,23 +136,26 @@ function run!(
             end
         end
 
-        # Update emitters with results
-        for emitter_idx in unique(emitter_indices)
-            mask = emitter_indices .== emitter_idx
-            if any(mask)
-                sols = view(solutions, :, mask)
-                objs = view(objectives, mask)
-                meas = view(measures, :, mask)
+        idx = 1
+        for (i, emitter_idx) in enumerate(emitters_idxs)
+            sols = view(solutions, :, idx:i*solutions_per_emitter)
+            objs = view(objectives, idx:i*solutions_per_emitter)
+            meas = view(measures, :, idx:i*solutions_per_emitter)
+            idx += solutions_per_emitter
+            tell!(scheduler.emitters[emitter_idx], sols, objs, meas)
 
-                # Update statistics
-                emitter_counts[emitter_idx] += length(objs)
-                emitter_rewards[emitter_idx] += sum(objs)
+            n = emitter_steps[emitter_idx] + 1
+            x = StatsBase.mean(objs)
+            μ_prev = emitter_means[emitter_idx]
+            v_prev = emitter_vars[emitter_idx]
 
-                # Tell emitter results
-                tell!(scheduler.emitters[emitter_idx], sols, objs, meas)
-            end
+            μ = μ_prev + ((x - μ_prev) / n)
+            v = ((n - 1) * v_prev + (x - μ_prev) * (x - μ)) / n
+
+            emitter_means[emitter_idx] = μ
+            emitter_vars[emitter_idx] = v
+            emitter_steps[emitter_idx] = n
         end
-
         total_evals += size(solutions, 2)
 
         # Report progress if needed

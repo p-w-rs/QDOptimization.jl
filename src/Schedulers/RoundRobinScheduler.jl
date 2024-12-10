@@ -125,7 +125,7 @@ function run!(
 
     # Pre-allocate arrays for objectives and measures
     objectives = Vector{M}(undef, scheduler.batch_size)
-    measures = Matrix{M}(undef, length(measure_dims(first(scheduler.emitters).archive)), scheduler.batch_size)
+    measures = Matrix{M}(undef, measure_dim(first(scheduler.emitters).archive), scheduler.batch_size)
 
     for batch in 1:n_batches
         emitter = scheduler.emitters[mod1(batch, n_emitters)]
