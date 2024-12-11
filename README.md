@@ -46,14 +46,12 @@ emitter2 = GaussianEmitter{Float64,Float64}(
 scheduler = RoundRobinScheduler([emitter1, emitter2], batch_size=10)
 
 # Define objective and measure functions
-objective_fn(x) = sum(x)
-measure_fn(x) = x
+objective_fn(x) = (objective = sum(x), measure = x)
 
 # Run optimization
 run!(
     scheduler,
     objective_fn,
-    measure_fn,
     1000,                # total evaluations
     parallel=true,       # enable parallel evaluation
     show_progress=true   # show progress updates
@@ -68,15 +66,14 @@ run!(
 
 ### Emitters
 - ```GaussianEmitter```: Generates solutions using Gaussian perturbation
+- ```IsoLineEmitter```: Generates solutions along iso-lines in measure space
+- ```CMA-ES```: Generates solutions using Covariance Matrix Adaptation Evolution Strategy
 - Coming soon:
-  - CMA-MAE
-  - CMA-ES
   - Other non-gradient based emitters from pyribs
 
 ### Schedulers
 - ```RoundRobinScheduler```: Alternates between emitters in round-robin fashion
-- Coming soon:
-  - Armed bandit scheduler
+- ```BanditScheduler```: Chooses emitters based on performance bandit strategy using Thompson sampling
 
 ## Flexibility
 
