@@ -9,16 +9,17 @@ using .QDOptimization
 - we bin the measures in a 4x4x4 grid
 - the first grid cell is at (-Inf, 0.0] the last at (1.0, Inf) for each dimension
 """
-archive = GridArchive{Float32, Float64}(
-    10, Tuple(10 for _ in 1:3), [(0.0, 1.0) for _ in 1:3]
+archive = GridArchive{Float32,Float64}(
+    25, Tuple(10 for _ in 1:3), [(0.0, 1.0) for _ in 1:3]
 )
 
 # Create a Gaussian emitter
-emitters = [GaussianEmitter{Float32, Float64}(archive) for _ in 1:10]
-emitters = vcat(emitters..., [IsoLineEmitter{Float32, Float64}(archive) for _ in 1:10])
+emitters = [CMAESEmitter{Float32,Float64}(archive) for _ in 1:2]
+emitters = vcat(emitters..., [CMAESEmitter{Float32,Float64}(archive) for _ in 1:2])
+emitters = vcat(emitters..., [CMAESEmitter{Float32,Float64}(archive) for _ in 1:2])
 
 # Create a scheduler with the emitter
-scheduler = BanditScheduler(emitters, num_active=5, batch_size=25, stats_frequency=1000)
+scheduler = RoundRobinScheduler(emitters, batch_size=100, stats_frequency=100)
 
 # Define the objective function
 # The objective function must return a NamedTuple with fields `objective` and `measure`
@@ -31,8 +32,8 @@ function rosenbrock(x::AbstractVector{<:Real})
     end
 
     return (
-        objective = -sum(100 * (x[i+1] - x[i]^2)^2 + (1 - x[i])^2 for i in 1:(n-1)),
-        measure = x[rand(1:n, 3)]
+        objective=-sum(100 * (x[i+1] - x[i]^2)^2 + (1 - x[i])^2 for i in 1:(n-1)),
+        measure=x[rand(1:n, 3)]
     )
 end
 

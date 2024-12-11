@@ -17,7 +17,7 @@ Main types:
 """
 module QDOptimization
 
-using Random
+using Random, LinearAlgebra
 import Base: get, length, isempty
 import StatsBase
 
@@ -41,9 +41,10 @@ export
 include("Emitters/Emitter.jl")
 include("Emitters/GaussianEmitter.jl")
 include("Emitters/IsoLineEmitter.jl")
+include("Emitters/CMAESEmitter.jl")
 export
     # Emitter Types
-    Emitter, GaussianEmitter, IsoLineEmitter,
+    Emitter, GaussianEmitter, IsoLineEmitter, CMAESEmitter,
 
     # Emitter functions
     ask!, tell!
