@@ -18,11 +18,5 @@
       "year": 2018
     }
   ],
-  "tags": [
-    "Favorites",
-    "Evolutionary Algorithms",
-    "Utility Library",
-    "Optimization",
-    "Julia"
-  ]
+  "tags": ["Evolutionary Algorithms", "Package", "Julia"]
 }
